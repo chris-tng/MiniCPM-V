@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 import deepspeed
 from transformers import Trainer
 from transformers.trainer_pt_utils import nested_detach
@@ -11,6 +12,7 @@ from transformers.integrations import is_deepspeed_zero3_enabled
 
 class CPMTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
+        print(f"[{dist.get_rank()}] inputs {inputs['input_ids'].shape}, labels {inputs['labels'].shape}, pixel_values {len(inputs['pixel_values'])}", flush=True)
         if "labels" in inputs:
             labels = inputs.pop("labels")
         else:
@@ -18,6 +20,7 @@ class CPMTrainer(Trainer):
         
         if not self.args.use_lora:
             outputs = self.model(data = inputs, use_cache=False)
+            print(f"[{dist.get_rank()}] logits {outputs.logits.shape}", flush=True)
         else:
             with self.model._enable_peft_forward_hooks(**inputs):
                 outputs = self.model.base_model(data = inputs, use_cache=False)
